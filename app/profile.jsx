@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext } from "react";
 import {
   View,
   Text,
@@ -6,33 +6,36 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
-
-import ProfileEditModal from "@/components/modals/ProfileEditModal";
 import ProfileCard from "@/components/profile/ProfileCard";
 import InfoField from "@/components/profile/InfoField";
 import { AppContext } from "@/context/AppContext";
 import { ThemeContext } from "@/context/ThemeProvider";
 
 const Profile = () => {
-  const { teacher, loadTeacher } = useContext(AppContext);
+  const { staff } = useContext(AppContext);
   const { COLORS } = useContext(ThemeContext);
-  const [editOpen, setEditOpen] = useState(false);
+  const router = useRouter();
 
-  if (!teacher) {
+  if (!staff) {
     return null;
   }
 
-  const address = teacher.address || {};
-  const profileImage = teacher?.image?.url || teacher?.image;
-
+  const address = staff.address || {};
+  const profileImage = staff?.image?.url || staff?.image;
 
   return (
-    <>
+    <SafeAreaView 
+      className="flex-1" 
+      style={{ backgroundColor: COLORS.background }}
+      edges={["bottom"]}
+    >
       <ScrollView
         className="flex-1"
-        style={{ backgroundColor: COLORS.background }}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       >
         {/* Main Profile Header Card */}
         <View 
@@ -55,17 +58,16 @@ const Profile = () => {
                 className="text-xs font-semibold mb-1"
                 style={{ color: COLORS.textSecondary }}
               >
-                Designation: {teacher?.designation || "N/A"}
+                Designation: {staff?.designation || "N/A"}
               </Text>
 
               <Text
                 className="text-2xl font-bold"
                 style={{ color: COLORS.textPrimary }}
               >
-                {teacher?.name || "Teacher"}
+                {staff?.name || "Staff Member"}
               </Text>
 
-              {/* Adaptive Badge Container */}
               <View 
                 className="self-start mt-2 px-3 py-1 rounded-full border"
                 style={{ 
@@ -77,7 +79,7 @@ const Profile = () => {
                   className="text-xs font-semibold"
                   style={{ color: COLORS.primary }}
                 >
-                  ID: {teacher?.teacherId || "N/A"}
+                  ID: {staff?.staffId || "N/A"}
                 </Text>
               </View>
             </View>
@@ -86,7 +88,8 @@ const Profile = () => {
           <TouchableOpacity
             className="mt-5 rounded-2xl py-3 items-center"
             style={{ backgroundColor: COLORS.primary }}
-            onPress={() => setEditOpen(true)}
+            onPress={() => router.push("/profile-edit")}
+            activeOpacity={0.8}
           >
             <Text className="text-white font-semibold">Edit Profile</Text>
           </TouchableOpacity>
@@ -94,27 +97,27 @@ const Profile = () => {
 
         {/* Account Details Wrapper */}
         <ProfileCard title="Account & Academic Details">
-          <InfoField label="Full Name" value={teacher?.name} />
+          <InfoField label="Full Name" value={staff?.name} />
           <InfoField
             label="Email Address"
             value={
-              teacher?.email && teacher.email !== "N/A"
-                ? teacher.email
+              staff?.email && staff.email !== "N/A"
+                ? staff.email
                 : "Not Provided"
             }
           />
-          <InfoField label="Contact Number" value={teacher?.contact} />
-          <InfoField label="Subject" value={teacher?.subjectTaught} highlight />
-          <InfoField label="Degree / Qualifications" value={teacher?.degree} />
+          <InfoField label="Contact Number" value={staff?.contact} />
+          <InfoField label="Subject" value={staff?.subjectTaught || "N/A"} />
+          <InfoField label="Degree / Qualifications" value={staff?.qualification} />
           <InfoField
             label="Experience"
             value={
-              teacher?.experience !== undefined
-                ? `${teacher.experience} Years`
+              staff?.experience !== undefined
+                ? `${staff.experience} Years`
                 : "N/A"
             }
           />
-          <InfoField label="Account Status" value={teacher?.status || "Pending"} />
+          <InfoField label="Account Status" value={staff?.status || "Pending"} />
         </ProfileCard>
 
         {/* Address Details Wrapper */}
@@ -127,14 +130,7 @@ const Profile = () => {
           <InfoField label="State" value={address.state || "Assam"} />
         </ProfileCard>
       </ScrollView>
-
-      <ProfileEditModal
-        visible={editOpen}
-        onClose={() => setEditOpen(false)}
-        teacher={teacher}
-        loadTeacher={loadTeacher}
-      />
-    </>
+    </SafeAreaView>
   );
 };
 

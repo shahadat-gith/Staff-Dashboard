@@ -1,13 +1,9 @@
 import React, { useContext } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-} from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Feather from '@expo/vector-icons/Feather';
+import Feather from "@expo/vector-icons/Feather";
+import { router } from "expo-router";
 
 import { ThemeContext } from "@/context/ThemeProvider";
 
@@ -32,8 +28,8 @@ const TodaySchedule = ({ timetableData }) => {
   const todaySchedule = schedule?.[today] || [];
 
   return (
-    <View 
-      className="rounded-3xl p-5 mb-5" 
+    <View
+      className="rounded-3xl p-5 mb-5"
       style={{ backgroundColor: COLORS.card, elevation: 3 }}
     >
       {/* Widget Header Area */}
@@ -46,8 +42,11 @@ const TodaySchedule = ({ timetableData }) => {
             Today&apos;s Schedule
           </Text>
 
-          <Text className="mt-1" style={{ color: COLORS.textSecondary }}>
-            {today} • {todaySchedule.length} classes today
+          <Text
+            className="mt-1 text-xs font-medium"
+            style={{ color: COLORS.textSecondary }}
+          >
+            {today} • {todaySchedule.length} classes scheduled
           </Text>
         </View>
 
@@ -55,6 +54,7 @@ const TodaySchedule = ({ timetableData }) => {
           onPress={() => router.push("/timetable")}
           className="w-11 h-11 rounded-2xl items-center justify-center"
           style={{ backgroundColor: COLORS.primary }}
+          activeOpacity={0.7}
         >
           <Feather name="arrow-up-right" size={24} color={COLORS.white} />
         </TouchableOpacity>
@@ -63,47 +63,60 @@ const TodaySchedule = ({ timetableData }) => {
       {/* Dynamic Conditional Slots Listing */}
       {todaySchedule.length > 0 ? (
         <View>
-          {todaySchedule.map((slot, index) => (
-            <View
-              key={index}
-              className="rounded-2xl p-4 mb-3"
-              style={{ backgroundColor: COLORS.background }}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1">
-                  <Text
-                    className="text-base font-bold"
-                    style={{ color: COLORS.textPrimary }}
-                  >
-                    {slot.subject || "Subject"}
-                  </Text>
+          {todaySchedule.map((slot, index) => {
+            // Clean up default fallback data layouts safely
+            const classText = slot.class || "N/A";
+            const mediumText = slot.medium || "N/A";
 
-                  <Text
-                    className="mt-1 text-xs"
-                    style={{ color: COLORS.textSecondary }}
-                  >
-                    Class {slot.class || "N/A"} • {slot.medium || "N/A"}
-                  </Text>
-                </View>
+            // Filter out default backend string assignments smoothly
+            const hasStream =
+              slot.stream && slot.stream !== "null" && slot.stream !== "None";
+            const subDetailLabel = hasStream
+              ? `Class ${classText} (${slot.stream}) • ${mediumText}`
+              : `Class ${classText} • ${mediumText}`;
 
-                {/* Time Indicator Frame */}
-                <View className="flex-row items-center">
-                  <Ionicons
-                    name="time-outline"
-                    size={17}
-                    color={COLORS.primary}
-                  />
+            return (
+              <View
+                key={index}
+                className="rounded-2xl p-4 mb-3"
+                style={{ backgroundColor: COLORS.background }}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-2">
+                    <Text
+                      className="text-base font-bold"
+                      style={{ color: COLORS.textPrimary }}
+                    >
+                      {slot.subject || "Subject"}
+                    </Text>
 
-                  <Text
-                    className="ml-1 font-semibold text-sm"
-                    style={{ color: COLORS.primary }}
-                  >
-                    {slot.timeSlot || "N/A"}
-                  </Text>
+                    <Text
+                      className="mt-1 text-xs font-medium"
+                      style={{ color: COLORS.textSecondary }}
+                    >
+                      {subDetailLabel}
+                    </Text>
+                  </View>
+
+                  {/* Time Indicator Frame */}
+                  <View className="flex-row items-center bg-transparent px-2 py-1 rounded-xl">
+                    <Ionicons
+                      name="time-outline"
+                      size={16}
+                      color={COLORS.primary}
+                    />
+
+                    <Text
+                      className="ml-1 font-bold text-sm"
+                      style={{ color: COLORS.primary }}
+                    >
+                      {slot.timeSlot || "N/A"}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       ) : (
         /* Empty Schedule Fallback State */
@@ -122,10 +135,11 @@ const TodaySchedule = ({ timetableData }) => {
           </Text>
 
           <Text
-            className="text-center mt-1 px-4 text-xs"
+            className="text-center mt-1 px-6 text-xs leading-relaxed"
             style={{ color: COLORS.textSecondary }}
           >
-            You do not have any scheduled classes for {today}.
+            You do not have any scheduled academic routines assigned for {today}
+            .
           </Text>
         </View>
       )}

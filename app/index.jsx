@@ -1,22 +1,21 @@
+import { router } from "expo-router";
 import React, { useContext, useEffect } from "react";
 
-import { router } from "expo-router";
-
-import { AppContext } from "@/context/AppContext";
 import ScreenLoader from "@/components/common/ScreenLoader";
+import { AppContext } from "@/context/AppContext";
 
 export default function Index() {
-  const { teacher, sessionChecking } = useContext(AppContext);
+  const { staff, sessionChecking } = useContext(AppContext);
 
   useEffect(() => {
     if (sessionChecking) return;
 
-    if (teacher) {
+    if (staff) {
       router.replace("/(tabs)");
     } else {
       router.replace("/login");
     }
-  }, [teacher, sessionChecking]);
+  }, [staff, sessionChecking]);
 
   return <ScreenLoader text="Checking your session..." />;
 }

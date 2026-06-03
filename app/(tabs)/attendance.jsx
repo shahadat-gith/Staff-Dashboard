@@ -10,10 +10,10 @@ import {
 
 import { Ionicons } from "@expo/vector-icons";
 
+import { staffApi } from "@/api/staff";
 import AttendanceHistory from "@/components/attendance/AttendanceHistory";
 import CalendarCard from "@/components/attendance/CalendarCard";
 import ScannerModal from "@/components/modals/ScannerModal";
-import api from "@/configs/api";
 
 import AnimatedScreen from "@/components/common/AnimatedScreen";
 import { ThemeContext } from "@/context/ThemeProvider";
@@ -35,21 +35,16 @@ const Attendance = () => {
     setError(null);
 
     try {
-      const res = await api.get("/api/attendance/history/me", {
-        params: {
-          month: selectedMonth + 1,
-          year: selectedYear,
-        },
-      });
+      const data = await staffApi.getAttendanceHistory(
+        selectedMonth + 1,
+        selectedYear,
+      );
 
-      if (res.data?.success) {
-        setHistory(res.data.attendance || []);
+      if (data?.success) {
+        setHistory(data.attendance || []);
       }
-    } catch (error) {
-      const message =
-        error?.response?.data?.message || "Unable to load attendance history.";
-
-      setError(message);
+    } catch (err) {
+      setError(err.message);
       setHistory([]);
     } finally {
       setLoading(false);
@@ -64,22 +59,20 @@ const Attendance = () => {
     setMarking(true);
 
     try {
-      const res = await api.post("/api/attendance/mark-attendance", {
-        token: qrToken,
-        markedBy: "Teacher",
-        status: "Present",
-      });
+      const data = await staffApi.markAttendance(qrToken, "Staff", "Present");
 
-      if (res.data?.success) {
-        Alert.alert("Success", "Attendance marked successfully.");
+      if (data?.success) {
         setShowScanner(false);
-        fetchMonthlyAttendance();
+        setTimeout(() => {
+          Alert.alert("Success", "Attendance marked successfully.");
+        }, 100);
+        setHistory(data.attendance || []);
       }
-    } catch (error) {
-      Alert.alert(
-        "Failed",
-        error?.response?.data?.message || "Failed to mark attendance.",
-      );
+    } catch (err) {
+      setShowScanner(false);
+      setTimeout(() => {
+        Alert.alert("Failed", err.message);
+      }, 300);
     } finally {
       setMarking(false);
     }
@@ -103,8 +96,8 @@ const Attendance = () => {
           className="flex-1"
           style={{ backgroundColor: COLORS.background }}
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Header Row */}
           <View className="flex-row items-center justify-between mb-5">
             <View>
               <Text
@@ -129,6 +122,7 @@ const Attendance = () => {
                     ? COLORS.inactive
                     : COLORS.primary,
               }}
+              activeOpacity={0.8}
             >
               {marking ? (
                 <ActivityIndicator color={COLORS.white} />
@@ -142,7 +136,6 @@ const Attendance = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Already Marked Banner */}
           {isTodayAttendanceMarked && (
             <View
               className="border rounded-2xl px-4 py-3 mb-5"
@@ -157,7 +150,6 @@ const Attendance = () => {
             </View>
           )}
 
-          {/* Dynamic Content States */}
           {loading ? (
             <View className="items-center justify-center py-20">
               <ActivityIndicator size="large" color={COLORS.primary} />
@@ -197,6 +189,7 @@ const Attendance = () => {
         visible={showScanner}
         onClose={() => setShowScanner(false)}
         onScanSuccess={markAttendance}
+        isMarking={marking}
       />
     </>
   );

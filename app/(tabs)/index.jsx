@@ -1,13 +1,13 @@
 import React, { useContext, useEffect, useState } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
 
-import * as SecureStore from "expo-secure-store";
-import { router } from "expo-router";
-import TodaySchedule from "@/components/home/TodaySchedule";
-import RecentAttendance from "@/components/home/RecentAttendance";
 import AnimatedScreen from "@/components/common/AnimatedScreen";
+import RecentAttendance from "@/components/home/RecentAttendance";
+import TodaySchedule from "@/components/home/TodaySchedule";
+import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 
-import api from "@/configs/api";
+import { staffApi } from "@/api/staff"; // Consuming your centralized staff endpoints file
 import { AppContext } from "@/context/AppContext";
 import { ThemeContext } from "@/context/ThemeProvider";
 
@@ -21,11 +21,12 @@ const emptyScheduleStructure = {
 };
 
 const Home = () => {
-  const { teacher, setTeacher } = useContext(AppContext);
+  // Swapped context handles to use the general staff payload references
+  const { staff, setStaff } = useContext(AppContext);
   const { COLORS } = useContext(ThemeContext);
 
   const [dashboard, setDashboard] = useState({
-    teacher,
+    profile: staff,
     timetable: {
       schedule: emptyScheduleStructure,
     },
@@ -35,6 +36,7 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState("Welcome");
 
+  /* ================= CALCULATE SYSTEM DYNAMIC GREETING ================= */
   useEffect(() => {
     const hour = new Date().getHours();
 
@@ -47,32 +49,34 @@ const Home = () => {
     }
   }, []);
 
+  /* ================= EFFECT DISPATCHER ROUTINE ================= */
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     setLoading(true);
-
     try {
-      const response = await api.get("/api/teacher/dashboard");
+      // Calls your central service abstraction function directly
+      const data = await staffApi.getDashboard();
 
-      if (response.data?.success) {
-        setDashboard(response.data.dashboard);
+      if (data?.success) {
+        setDashboard(data.dashboard);
       }
     } catch (error) {
       const message =
         error?.response?.data?.message ||
-        "Unable to load dashboard data. Please log in again.";
+        "Unable to load workspace data records. Please log in again.";
 
       if (error?.response?.status === 401) {
-        await SecureStore.deleteItemAsync("teacher-token");
-        setTeacher(null);
+        // Clear updated secure store slot path parameters on unauthorized signals
+        await SecureStore.deleteItemAsync("staff-token");
+        setStaff(null);
         router.replace("/login");
         return;
       }
 
-      Alert.alert("Error", message);
+      Alert.alert("Sync Error", message);
     } finally {
       setLoading(false);
     }
@@ -80,20 +84,24 @@ const Home = () => {
 
   if (loading) {
     return (
-      <View 
-        className="flex-1 items-center justify-center" 
+      <View
+        className="flex-1 items-center justify-center"
         style={{ backgroundColor: COLORS.background }}
       >
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text className="mt-3" style={{ color: COLORS.textSecondary }}>
-          Loading dashboard...
+        <Text
+          className="mt-3 text-sm font-medium"
+          style={{ color: COLORS.textSecondary }}
+        >
+          Loading your workspace...
         </Text>
       </View>
     );
   }
 
-  const dashboardTeacher = dashboard?.teacher || teacher;
-  const timetable = dashboard?.timetable || {};
+  // De-structuring clean variables matching the updated backend payload schema
+  const profile = dashboard?.profile || staff;
+  const timetable = dashboard?.timetable;
   const attendance = dashboard?.attendance || [];
 
   return (
@@ -102,21 +110,27 @@ const Home = () => {
         className="flex-1"
         style={{ backgroundColor: COLORS.background }}
         contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header/Greeting Section */}
-        <View className="mb-5">
+        {/* Header / Dynamic Profile Greeting Section */}
+        <View className="mb-6">
           <Text
-            className="text-2xl font-bold"
+            className="text-2xl font-bold tracking-tight"
             style={{ color: COLORS.textPrimary }}
           >
             <Text style={{ color: COLORS.primary }}>{greeting}</Text>,{" "}
-            {dashboardTeacher?.name || "Teacher"}!
+            {profile?.name || "Staff Member"}!
           </Text>
+         
         </View>
 
-        {/* Dashboard Widgets */}
-        <TodaySchedule timetableData={timetable} />
+        {/* CONDITIONALLY RENDER TIMETABLE SECTION WIDGET */}
+        {/* Hides class slots dynamically if employee belongs to non-teaching structures */}
+        {profile?.staffType === "Teaching" && timetable ? (
+          <TodaySchedule timetableData={timetable} />
+        ) : null}
 
+        {/* Historical Attendance Logger Widget */}
         <RecentAttendance attendance={attendance} />
       </ScrollView>
     </AnimatedScreen>

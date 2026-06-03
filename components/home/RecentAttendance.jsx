@@ -1,13 +1,9 @@
 import React, { useContext } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-} from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Feather from '@expo/vector-icons/Feather';
+import Feather from "@expo/vector-icons/Feather";
+import { router } from "expo-router";
 
 import { ThemeContext } from "@/context/ThemeProvider";
 
@@ -34,8 +30,8 @@ const RecentAttendance = ({ attendance = [] }) => {
   };
 
   return (
-    <View 
-      className="rounded-3xl p-5 mb-5" 
+    <View
+      className="rounded-3xl p-5 mb-5"
       style={{ backgroundColor: COLORS.card, elevation: 3 }}
     >
       {/* Header Label Block */}
@@ -51,6 +47,7 @@ const RecentAttendance = ({ attendance = [] }) => {
           onPress={() => router.push("/attendance")}
           className="w-11 h-11 rounded-2xl items-center justify-center"
           style={{ backgroundColor: COLORS.primary }}
+          activeOpacity={0.7}
         >
           <Feather name="arrow-up-right" size={24} color={COLORS.white} />
         </TouchableOpacity>
@@ -60,12 +57,36 @@ const RecentAttendance = ({ attendance = [] }) => {
       {attendance.length > 0 ? (
         <View>
           {attendance.slice(0, 5).map((log) => {
-            const isPresent = log.status === "Present";
-            
-            // Generate fluid soft backgrounds depending on theme depth color definitions
-            const badgeBg = isPresent
-              ? (COLORS.card === "#ffffff" ? "#dcfce7" : "rgba(22, 163, 74, 0.15)")
-              : (COLORS.card === "#ffffff" ? "#fee2e2" : "rgba(239, 68, 68, 0.2)");
+            const status = log.status || "Present";
+
+            // Comprehensive styling map for all 3 backend database enum values
+            let badgeBg = "rgba(107, 114, 128, 0.15)";
+            let badgeBorder = "rgba(107, 114, 128, 0.1)";
+            let textColor = COLORS.textSecondary;
+
+            if (status === "Present") {
+              badgeBg =
+                COLORS.card === "#ffffff"
+                  ? "#dcfce7"
+                  : "rgba(22, 163, 74, 0.15)";
+              badgeBorder = "rgba(22, 163, 74, 0.1)";
+              textColor = COLORS.success;
+            } else if (status === "Absent") {
+              badgeBg =
+                COLORS.card === "#ffffff"
+                  ? "#fee2e2"
+                  : "rgba(239, 68, 68, 0.2)";
+              badgeBorder = "rgba(239, 68, 68, 0.1)";
+              textColor = COLORS.danger;
+            } else if (status === "On-Leave") {
+              // Smooth warning amber palette injection for approved absences
+              badgeBg =
+                COLORS.card === "#ffffff"
+                  ? "#fef3c7"
+                  : "rgba(217, 119, 6, 0.15)";
+              badgeBorder = "rgba(217, 119, 6, 0.1)";
+              textColor = COLORS.warning || "#d97706";
+            }
 
             return (
               <View
@@ -76,7 +97,7 @@ const RecentAttendance = ({ attendance = [] }) => {
                 <View className="flex-row items-center justify-between">
                   <View>
                     <Text
-                      className="font-bold"
+                      className="font-bold text-base"
                       style={{ color: COLORS.textPrimary }}
                     >
                       {formatDate(log.date)}
@@ -90,19 +111,19 @@ const RecentAttendance = ({ attendance = [] }) => {
                     </Text>
                   </View>
 
-                  {/* Adaptive Status Badge */}
+                  {/* Adaptive Status Badge Container */}
                   <View
-                    className="px-3 py-1 rounded-full border"
+                    className="px-3 py-1 rounded-full border items-center justify-center"
                     style={{
                       backgroundColor: badgeBg,
-                      borderColor: isPresent ? "rgba(22, 163, 74, 0.1)" : "rgba(239, 68, 68, 0.1)"
+                      borderColor: badgeBorder,
                     }}
                   >
                     <Text
-                      className="text-xs font-bold"
-                      style={{ color: isPresent ? COLORS.success : COLORS.danger }}
+                      className="text-xs font-bold uppercase tracking-wider"
+                      style={{ color: textColor }}
                     >
-                      {log.status || "Present"}
+                      {status}
                     </Text>
                   </View>
                 </View>

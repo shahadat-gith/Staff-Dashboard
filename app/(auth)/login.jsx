@@ -1,243 +1,229 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Image,
-  ImageBackground,
+  View,
 } from "react-native";
-
-import * as SecureStore from "expo-secure-store";
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 
+import { staffApi } from "@/api/staff";
 import api from "@/configs/api";
 import { AppContext } from "@/context/AppContext";
 import { ThemeContext } from "@/context/ThemeProvider";
-
 import ForgotPasswordModal from "@/components/modals/ForgotPasswordModal";
 
 const Login = () => {
-  const { teacher, setTeacher } = useContext(AppContext);
+  const { staff, setStaff } = useContext(AppContext);
   const { COLORS } = useContext(ThemeContext);
 
   const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // Local visibility tracking state hook for your bottom sheet modal component
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // SAFE REDIRECT GUARD: Fires strictly outside the layout rendering pass
   useEffect(() => {
-    if (teacher) {
+    if (staff) {
       router.replace("/(tabs)");
     }
-  }, [teacher]);
+  }, [staff]);
 
   const handleLogin = async () => {
-    if (!contact.trim() || !password.trim()) {
+    const cleanContact = contact.trim();
+
+    if (!cleanContact || !password.trim()) {
       return Alert.alert(
-        "Validation Error",
-        "Please enter both contact and password."
+        "Missing Details",
+        "Please enter both your contact number and password.",
       );
     }
 
     setLoading(true);
-
     try {
-      const response = await api.post("/api/auth/teacher-login", {
-        contact: contact.trim(),
-        password,
-      });
+      const data = await staffApi.login(cleanContact, password);
 
-      if (response.data?.success) {
-        const token = response.data.token;
-        const teacherData = response.data.teacher;
+      if (data?.success) {
+        const token = data.token;
+        const staffProfileData = data.staff;
 
-        if (!token) {
+        if (!token || !staffProfileData) {
           return Alert.alert(
             "Login Failed",
-            "Token was not received from server."
+            "Could not set up your secure session. Please try again.",
           );
         }
 
-        if (!teacherData) {
-          return Alert.alert(
-            "Login Failed",
-            "Teacher profile was not received from server."
-          );
-        }
-
-        await SecureStore.setItemAsync("teacher-token", token);
-        setTeacher(teacherData);
-        
-        // Let the useEffect hook up top handle standard redirect transitions seamlessly
+        await SecureStore.setItemAsync("staff-token", token);
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        setStaff(staffProfileData);
       } else {
         Alert.alert(
           "Login Failed",
-          response.data?.message || "Invalid credentials."
+          data?.message || "Incorrect contact number or password.",
         );
       }
     } catch (error) {
-      Alert.alert(
-        "Login Failed",
-        error?.response?.data?.message ||
-          "Unable to connect to server."
-      );
+      Alert.alert("Login Failed", error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ImageBackground
-      source={require("@/assets/images/background.webp")}
-      className="flex-1"
-      resizeMode="cover"
-    >
-      <View className="flex-1 bg-black/35">
-        <KeyboardAvoidingView
-          className="flex-1 justify-center px-6"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+    <View className="flex-1" style={{ backgroundColor: COLORS.background }}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Brand Identity / Logo Header */}
-          <View className="items-center mb-8">
-            <View className="w-24 h-24 rounded-full bg-white items-center justify-center mb-4">
+          {/* Brand/Logo Identity Block */}
+          <View className="items-center mb-10">
+            <View 
+              className="w-20 h-20 rounded-3xl items-center justify-center mb-5 border shadow-sm"
+              style={{ 
+                backgroundColor: COLORS.card, 
+                borderColor: COLORS.border,
+                shadowColor: COLORS.textPrimary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 10,
+              }}
+            >
               <Image
                 source={require("@/assets/images/logo.png")}
-                className="w-20 h-20"
+                className="w-14 h-14"
                 resizeMode="contain"
               />
             </View>
 
-            <Text className="text-white text-3xl font-bold text-center">
+            <Text className="text-2xl font-black tracking-tight" style={{ color: COLORS.textPrimary }}>
               Nashib Ali Academy
             </Text>
-
-            <Text className="text-white/90 text-base mt-2 text-center">
-              Teacher Portal
+            <Text className="text-sm font-semibold uppercase tracking-widest mt-1.5" style={{ color: COLORS.primary }}>
+              Staff Portal Access
             </Text>
           </View>
 
-          {/* Login Form Sheet Container */}
-          <View
-            className="rounded-3xl px-6 py-7"
-            style={{ backgroundColor: COLORS.card, elevation: 8 }}
-          >
-            <Text
-              className="text-2xl font-bold text-center mb-2"
-              style={{ color: COLORS.textPrimary }}
-            >
-              Welcome Back
-            </Text>
-
-            <Text
-              className="text-center mb-7"
-              style={{ color: COLORS.textSecondary }}
-            >
-              Sign in to access your dashboard
-            </Text>
-
-            {/* Input - Contact Field */}
-            <View
-              className="flex-row items-center border rounded-2xl px-4 mb-4"
-              style={{ 
-                borderColor: COLORS.border,
-                backgroundColor: COLORS.background 
-              }}
-            >
-              <Ionicons
-                name="call-outline"
-                size={20}
-                color={COLORS.textSecondary}
-              />
-
-              <TextInput
-                value={contact}
-                onChangeText={setContact}
-                placeholder="Contact Number"
-                keyboardType="phone-pad"
-                placeholderTextColor={COLORS.textSecondary}
-                className="flex-1 py-4 ml-3"
-                style={{ color: COLORS.textPrimary }}
-              />
-            </View>
-
-            {/* Input - Password Field */}
-            <View
-              className="flex-row items-center border rounded-2xl px-4 mb-3"
-              style={{ 
-                borderColor: COLORS.border,
-                backgroundColor: COLORS.background 
-              }}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color={COLORS.textSecondary}
-              />
-
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                secureTextEntry={!showPassword}
-                placeholderTextColor={COLORS.textSecondary}
-                className="flex-1 py-4 ml-3"
-                style={{ color: COLORS.textPrimary }}
-              />
-
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={COLORS.textSecondary}
+          {/* Core Credentials Input Field Blocks */}
+          <View className="space-y-4">
+            
+            {/* Input Wrapper: Contact */}
+            <View className="mb-4">
+              <Text className="text-xs font-bold uppercase tracking-wider mb-2 ml-1" style={{ color: COLORS.textSecondary }}>
+                Contact Number
+              </Text>
+              <View
+                className="flex-row items-center border rounded-2xl px-4"
+                style={{
+                  borderColor: COLORS.border,
+                  backgroundColor: COLORS.card,
+                }}
+              >
+                <Ionicons name="call-outline" size={18} color={COLORS.textSecondary} />
+                <TextInput
+                  value={contact}
+                  onChangeText={setContact}
+                  placeholder="Enter your registered number"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={COLORS.inactive}
+                  className="flex-1 py-4 ml-3 text-sm font-medium"
+                  style={{ color: COLORS.textPrimary }}
                 />
-              </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Recovery Action Link - NOW SAFELY TRIPPED OVER THE LOCAL MODAL HOOK STATE */}
-            <TouchableOpacity 
-              className="self-end mb-6" 
+            {/* Input Wrapper: Password */}
+            <View className="mb-2">
+              <Text className="text-xs font-bold uppercase tracking-wider mb-2 ml-1" style={{ color: COLORS.textSecondary }}>
+                Password
+              </Text>
+              <View
+                className="flex-row items-center border rounded-2xl px-4"
+                style={{
+                  borderColor: COLORS.border,
+                  backgroundColor: COLORS.card,
+                }}
+              >
+                <Ionicons name="lock-closed-outline" size={18} color={COLORS.textSecondary} />
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter secure credentials"
+                  secureTextEntry={!showPassword}
+                  placeholderTextColor={COLORS.inactive}
+                  className="flex-1 py-4 ml-3 text-sm font-medium"
+                  style={{ color: COLORS.textPrimary }}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={18}
+                    color={COLORS.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Password Sheet Modal Trigger Trigger */}
+            <TouchableOpacity
+              className="self-end py-2 mb-6"
               onPress={() => setIsModalVisible(true)}
+              activeOpacity={0.7}
             >
-              <Text style={{ color: COLORS.primary }}>Forgot Password?</Text>
+              <Text className="font-semibold text-xs tracking-wide" style={{ color: COLORS.textSecondary }}>
+                Forgot Password?
+              </Text>
             </TouchableOpacity>
 
-            {/* Submit Action Trigger */}
+            {/* Submit Action Button */}
             <TouchableOpacity
               disabled={loading}
               onPress={handleLogin}
-              className="rounded-2xl py-4 items-center"
+              className="rounded-2xl py-4.5 items-center justify-center shadow-sm"
               style={{
                 backgroundColor: loading ? COLORS.inactive : COLORS.primary,
+                shadowColor: COLORS.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 12,
               }}
+              activeOpacity={0.8}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color={COLORS.white} size="small" className="m-4"/>
               ) : (
-                <Text className="text-white font-semibold text-base">
-                  Sign In
+                <Text className="text-white font-bold text-base m-4 tracking-wide">
+                  Login
                 </Text>
               )}
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
 
-      {/* Embedded Account Password Recovery Modal Sheet */}
-      <ForgotPasswordModal 
-        visible={isModalVisible} 
-        onClose={() => setIsModalVisible(false)} 
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <ForgotPasswordModal
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
       />
-    </ImageBackground>
+    </View>
   );
 };
 

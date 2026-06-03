@@ -1,6 +1,5 @@
 import React, { useContext } from "react";
 import { View, Text } from "react-native";
-
 import { ThemeContext } from "@/context/ThemeProvider";
 
 const InfoField = ({ label, value, highlight }) => {
@@ -20,9 +19,7 @@ const InfoField = ({ label, value, highlight }) => {
 
       <Text
         className="text-base font-semibold"
-        style={{
-          color: highlight ? COLORS.primary : COLORS.textPrimary,
-        }}
+        style={{ color: COLORS.textPrimary }}
       >
         {value || "N/A"}
       </Text>

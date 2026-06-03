@@ -2,8 +2,11 @@ import { createContext } from "react";
 
 export const AppContext = createContext({
   backendUrl: "",
-  teacher: null,
-  setTeacher: () => {},
-  loading: true,
-  loadTeacher: () => {},
+  staff: null,
+  setStaff: () => {},
+  sessionChecking: true,
+  setSessionChecking: () => {},
+  loadStaff: async () => {},
+  logout: async () => {},
+  lastUpdated: "Loading...",
 });

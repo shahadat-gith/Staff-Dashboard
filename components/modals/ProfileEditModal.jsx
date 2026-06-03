@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,21 +8,23 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-
 import { Ionicons } from "@expo/vector-icons";
-
-import api from "@/configs/api";
+import { staffApi } from "@/api/staff";
 import { ThemeContext } from "@/context/ThemeProvider";
+import { AppContext } from "@/context/AppContext";
 
-const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
+const ProfileEditModal = ({ visible, onClose, staff }) => {
   const { COLORS } = useContext(ThemeContext);
+  const { setStaff } = useContext(AppContext);
 
   const [form, setForm] = useState({
     name: "",
     email: "",
     contact: "",
-    degree: "",
+    qualification: "",
     experience: "",
     village: "",
     po: "",
@@ -35,16 +37,15 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (visible && teacher) {
-      const address = teacher.address || {};
+    if (visible && staff) {
+      const address = staff.address || {};
 
       setForm({
-        name: teacher.name || "",
-        email: teacher.email && teacher.email !== "N/A" ? teacher.email : "",
-        contact: teacher.contact || "",
-        degree: teacher.degree || "",
-        experience:
-          teacher.experience !== undefined ? String(teacher.experience) : "",
+        name: staff.name || "",
+        email: staff.email && staff.email !== "N/A" ? staff.email : "",
+        contact: staff.contact || "",
+        qualification: staff.qualification || "",
+        experience: staff.experience !== undefined ? String(staff.experience) : "",
         village: address.village || "",
         po: address.po || "",
         ps: address.ps || "",
@@ -53,7 +54,7 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
         state: address.state || "Assam",
       });
     }
-  }, [visible, teacher]);
+  }, [visible, staff]);
 
   const handleChange = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -61,35 +62,26 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.contact.trim()) {
-      return Alert.alert(
-        "Validation Error",
-        "Name and contact number are required.",
-      );
+      return Alert.alert("Validation Error", "Name and contact number are required.");
     }
 
     if (form.pin && !/^\d{6}$/.test(form.pin)) {
-      return Alert.alert(
-        "Validation Error",
-        "Please enter a valid 6-digit PIN code.",
-      );
+      return Alert.alert("Validation Error", "Please enter a valid 6-digit PIN code.");
     }
 
     setSaving(true);
 
     try {
       const formData = new FormData();
-      const oldAddress = teacher?.address || {};
-      const oldEmail = teacher?.email === "N/A" ? "" : teacher?.email || "";
+      const oldAddress = staff?.address || {};
+      const oldEmail = staff?.email === "N/A" ? "" : staff?.email || "";
 
-      if (form.name !== teacher?.name) formData.append("name", form.name);
-      if (form.email !== oldEmail)
-        formData.append("email", form.email || "N/A");
-      if (form.contact !== teacher?.contact)
-        formData.append("contact", form.contact);
-      if (form.degree !== teacher?.degree)
-        formData.append("degree", form.degree);
+      if (form.name !== staff?.name) formData.append("name", form.name);
+      if (form.email !== oldEmail) formData.append("email", form.email || "N/A");
+      if (form.contact !== staff?.contact) formData.append("contact", form.contact);
+      if (form.qualification !== staff?.qualification) formData.append("qualification", form.qualification);
 
-      if (Number(form.experience) !== Number(teacher?.experience)) {
+      if (Number(form.experience) !== Number(staff?.experience)) {
         formData.append("experience", Number(form.experience));
       }
 
@@ -120,39 +112,31 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
         return Alert.alert("No Changes", "No profile changes detected.");
       }
 
-      const response = await api.post("/api/teacher/update", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const data = await staffApi.updateProfile(formData);
 
-      if (response.data?.success) {
-        await loadTeacher();
+      if (data?.success) {
+        setStaff(data.staff)
         onClose();
-        Alert.alert("Success", "Profile updated successfully.");
-      } else {
-        Alert.alert(
-          "Update Failed",
-          response.data?.message || "Failed to update profile.",
-        );
+       Alert.alert("Success", "Profile updated successfully.");
       }
     } catch (error) {
-      Alert.alert(
-        "Update Failed",
-        error?.response?.data?.message ||
-          "An error occurred while updating profile.",
-      );
+      Alert.alert("Update Failed", error.message);
     } finally {
+      // 🌟 FIX: Re-secured the proper javascript compile engine block boundary here
       setSaving(false);
     }
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View className="flex-1 bg-black/40 justify-end">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1 bg-black/40 justify-end"
+      >
         <View
           className="rounded-t-3xl max-h-[92%]"
           style={{ backgroundColor: COLORS.card }}
         >
-          {/* Header Bar */}
           <View
             className="flex-row items-center justify-between px-5 py-4 border-b"
             style={{ borderColor: COLORS.border }}
@@ -170,8 +154,9 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
           </View>
 
           <ScrollView
-            contentContainerStyle={{ padding: 20 }}
+            contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             <SectionTitle title="Personal Details" colors={COLORS} />
 
@@ -197,8 +182,8 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
             />
             <Input
               label="Degree / Qualifications"
-              value={form.degree}
-              onChangeText={(v) => handleChange("degree", v)}
+              value={form.qualification}
+              onChangeText={(v) => handleChange("qualification", v)}
               colors={COLORS}
             />
             <Input
@@ -235,7 +220,6 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
               onChangeText={(v) => handleChange("district", v)}
               colors={COLORS}
             />
-
             <Input
               label="PIN Code"
               value={form.pin}
@@ -244,7 +228,6 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
               maxLength={6}
               colors={COLORS}
             />
-
             <Input
               label="State"
               value={form.state}
@@ -252,13 +235,13 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
               colors={COLORS}
             />
 
-            {/* Action Buttons */}
             <View className="flex-row gap-3 mt-4 mb-4">
               <TouchableOpacity
                 disabled={saving}
                 onPress={onClose}
                 className="flex-1 rounded-2xl py-4 items-center border"
                 style={{ borderColor: COLORS.primary }}
+                activeOpacity={0.7}
               >
                 <Text
                   className="font-semibold"
@@ -275,6 +258,7 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
                 style={{
                   backgroundColor: saving ? COLORS.inactive : COLORS.primary,
                 }}
+                activeOpacity={0.8}
               >
                 {saving ? (
                   <ActivityIndicator color={COLORS.white} />
@@ -285,7 +269,7 @@ const ProfileEditModal = ({ visible, onClose, teacher, loadTeacher }) => {
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

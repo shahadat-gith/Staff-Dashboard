@@ -9,27 +9,28 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 
 import AnimatedScreen from "@/components/common/AnimatedScreen";
 import ImageCropperModal from "@/components/modals/ImageCropperModal";
+import ChangePasswordModal from "@/components/modals/ChangePasswordModal"; // 🌟 Imported here
 import { SettingRowItem } from "@/components/settings/SettingRowItem";
 import { SettingSectionHeader } from "@/components/settings/SettingSectionHeader";
-import api from "@/configs/api";
+import { staffApi } from "@/api/staff";
 import { AppContext } from "@/context/AppContext";
 import { ThemeContext } from "@/context/ThemeProvider";
+import { useRouter } from "expo-router";
 
 const Settings = () => {
-  const { teacher, lastUpdated, loadTeacher, setTeacher } =
-    useContext(AppContext);
+  const { staff, lastUpdated, setStaff, logout } = useContext(AppContext);
   const { COLORS } = useContext(ThemeContext);
+
+  const router =  useRouter()
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [cropperVisible, setCropperVisible] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false); // 🌟 Modal toggle state
   const [selectedRawUri, setSelectedRawUri] = useState("");
 
   const handleLogout = () => {
@@ -39,17 +40,15 @@ const Settings = () => {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
-          await SecureStore.deleteItemAsync("teacher-token");
-          setTeacher(null);
-          router.push("/(auth)/login");
+          await logout();
+          router.replace("/login");
         },
       },
     ]);
   };
 
   const handleChangeProfilePicture = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
       Alert.alert(
@@ -81,34 +80,20 @@ const Settings = () => {
     const type = match ? `image/${match[1]}` : `image`;
 
     formData.append("image", {
-      uri:
-        Platform.OS === "android"
-          ? croppedFile.uri
-          : croppedFile.uri.replace("file://", ""),
+      uri: Platform.OS === "android" ? croppedFile.uri : croppedFile.uri.replace("file://", ""),
       name: filename || "profile.jpg",
       type,
     });
 
     try {
-      const response = await api.post("/api/teacher/update", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const data = await staffApi.updateProfile(formData);
 
-      if (response.data?.success) {
-        await loadTeacher();
+      if (data?.success) {
+       setStaff(data.staff)
         Alert.alert("Success", "Profile picture updated successfully.");
-      } else {
-        Alert.alert(
-          "Update Failed",
-          response.data?.message || "Failed to update profile picture.",
-        );
       }
     } catch (error) {
-      Alert.alert(
-        "Update Failed",
-        error?.response?.data?.message ||
-          "An error occurred while updating profile picture.",
-      );
+      Alert.alert("Update Failed", error.message);
     } finally {
       setUploadingImage(false);
     }
@@ -123,12 +108,11 @@ const Settings = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
         >
-          {/* ── TEACHER AVATAR TOP CARD CONTAINER ── */}
           <View className="p-6 rounded-3xl mb-6 items-center">
             <View className="relative w-24 h-24 mb-4">
-              {teacher?.image?.url ? (
+              {staff?.image?.url ? (
                 <Image
-                  source={{ uri: teacher.image.url }}
+                  source={{ uri: staff.image.url }}
                   className="w-full h-full rounded-full bg-neutral-800"
                   resizeMode="cover"
                 />
@@ -168,11 +152,10 @@ const Settings = () => {
                 color: COLORS.primary,
               }}
             >
-              ID: {teacher?.teacherId || "NAA-STAFF"}
+              ID: {staff?.staffId || "NAA-STAFF"}
             </Text>
           </View>
 
-          {/* ── SECTION 1: DETAILED PROFILE DATA LIST ── */}
           <SettingSectionHeader title="Account Information" colors={COLORS} />
           <View
             className="rounded-3xl px-4 py-2 mb-6 border"
@@ -182,7 +165,7 @@ const Settings = () => {
               className="flex-row items-center justify-between py-3.5 border-b"
               style={{ borderColor: COLORS.border }}
             >
-              <View className="flex-row items-center space-x-3 flex-1 pr-2">
+              <View className="flex-row items-center flex-1 pr-2">
                 <Ionicons
                   name="person-outline"
                   size={18}
@@ -201,12 +184,12 @@ const Settings = () => {
                 numberOfLines={1}
                 style={{ color: COLORS.textPrimary }}
               >
-                {teacher?.name || "N/A"}
+                {staff?.name || "N/A"}
               </Text>
             </View>
 
             <View className="flex-row items-center justify-between py-3.5">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center">
                 <Ionicons
                   name="mail-outline"
                   size={18}
@@ -224,12 +207,11 @@ const Settings = () => {
                 className="text-sm font-bold text-right"
                 style={{ color: COLORS.textPrimary }}
               >
-                {teacher?.email}
+                {staff?.email || "N/A"}
               </Text>
             </View>
           </View>
 
-          {/* ── SECTION 2: SECURITY OPTIONS ── */}
           <SettingSectionHeader title="Security" colors={COLORS} />
           <View
             className="rounded-3xl overflow-hidden mb-6 border"
@@ -239,13 +221,12 @@ const Settings = () => {
               icon="key-outline"
               title="Change Password"
               description="Update your security credentials regularly"
-              onPress={() => router.push("/change-password")}
+              onPress={() => setPasswordModalVisible(true)} // 🌟 Toggles bottom sheet modal
               colors={COLORS}
               isLast
             />
           </View>
 
-          {/* ── SECTION 3: ACADEMY INFORMATION ── */}
           <SettingSectionHeader title="Academy Information" colors={COLORS} />
           <View
             className="rounded-3xl overflow-hidden mb-6 border"
@@ -275,20 +256,18 @@ const Settings = () => {
             />
           </View>
 
-          {/* ── SECTION 4: SYSTEM ABOUT & INFORMATION ── */}
           <SettingSectionHeader title="About & System" colors={COLORS} />
           <View
             className="rounded-3xl px-4 py-2 mb-6 border"
             style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
           >
-            {/* Developer Item Segment */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => router.push("/developer")}
               className="flex-row items-center justify-between py-3.5 border-b"
               style={{ borderColor: COLORS.border }}
             >
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center">
                 <Ionicons
                   name="code-slash-outline"
                   size={18}
@@ -310,12 +289,11 @@ const Settings = () => {
               </Text>
             </TouchableOpacity>
 
-            {/* Sync Status Info Row */}
             <View
               className="flex-row items-center justify-between py-3.5 border-b"
               style={{ borderColor: COLORS.border }}
             >
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center">
                 <Ionicons
                   name="refresh-outline"
                   size={18}
@@ -337,9 +315,8 @@ const Settings = () => {
               </Text>
             </View>
 
-            {/* Build Version Info Row */}
             <View className="flex-row items-center justify-between py-3.5">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center">
                 <Ionicons
                   name="options-outline"
                   size={18}
@@ -362,7 +339,6 @@ const Settings = () => {
             </View>
           </View>
 
-          {/* ── SECTION 5: ACCOUNT SYSTEM MUTATIONS ── */}
           <SettingSectionHeader title="Session Management" colors={COLORS} />
           <View
             className="rounded-3xl overflow-hidden mb-8 border"
@@ -388,22 +364,27 @@ const Settings = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Clean, simple legal mark stamp */}
           <Text
             className="text-[10px] font-medium text-center"
             style={{ color: COLORS.inactive }}
           >
-            Nashib Ali Academy • © {new Date().getFullYear()} All Rights
-            Reserved
+            Nashib Ali Academy • © {new Date().getFullYear()} All Rights Reserved
           </Text>
         </ScrollView>
       </AnimatedScreen>
 
+      {/* Profile Picture Cropper Backdrop Sheet */}
       <ImageCropperModal
         visible={cropperVisible}
         imageUri={selectedRawUri}
         onClose={() => setCropperVisible(false)}
         onCropSuccess={handleUploadCroppedImage}
+      />
+
+      {/* 🌟 New Bottom Change Password Sheet Modal Container */}
+      <ChangePasswordModal
+        visible={passwordModalVisible}
+        onClose={() => setPasswordModalVisible(false)}
       />
     </>
   );

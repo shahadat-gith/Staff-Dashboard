@@ -1,22 +1,21 @@
+import { staffApi } from "@/api/staff";
+import api from "@/configs/api";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
-
-import api from "@/configs/api";
 import { AppContext } from "./AppContext";
 
 const AppProvider = ({ children }) => {
   const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-  const [teacher, setTeacher] = useState(null);
+  const [staff, setStaff] = useState(null);
   const [sessionChecking, setSessionChecking] = useState(true);
-
   const [lastUpdated, setLastUpdated] = useState("Loading...");
 
   useEffect(() => {
     const fetchLastUpdate = async () => {
       try {
         const response = await fetch(
-          "https://api.github.com/repos/shahadat-gith/NAA/commits?per_page=1",
+          "https://api.github.com/repos/shahadat-gith/NAA-Teacher-Dashboard/commits?per_page=1",
         );
 
         if (!response.ok) {
@@ -24,7 +23,6 @@ const AppProvider = ({ children }) => {
         }
 
         const data = await response.json();
-
         const commitDate = data[0]?.commit?.committer?.date;
 
         if (!commitDate) {
@@ -49,51 +47,68 @@ const AppProvider = ({ children }) => {
     fetchLastUpdate();
   }, []);
 
-  const loadTeacher = async () => {
+  const loadStaff = async () => {
     try {
-      const token = await SecureStore.getItemAsync("teacher-token");
+      const token = await SecureStore.getItemAsync("staff-token");
 
       if (!token) {
-        setTeacher(null);
+        setStaff(null);
+        setSessionChecking(false);
         return null;
       }
 
-      const response = await api.get("/api/auth/teacher/me");
+      const data = await staffApi.getProfile();
 
-      if (response.data?.success && response.data?.teacher) {
-        setTeacher(response.data.teacher);
-        return response.data.teacher;
+      if (data?.success && data?.staff) {
+        setStaff(data.staff);
+        setSessionChecking(false);
+        return data.staff;
       }
 
-      setTeacher(null);
-      await SecureStore.deleteItemAsync("teacher-token");
+      // Profile fetch failed, clear the session
+      setStaff(null);
+      await SecureStore.deleteItemAsync("staff-token");
+      delete api.defaults.headers.common["Authorization"];
+      setSessionChecking(false);
       return null;
     } catch (error) {
-      console.log(
-        "loadTeacher error:",
-        error?.response?.data || error?.message,
-      );
-      setTeacher(null);
-      await SecureStore.deleteItemAsync("teacher-token");
-      return null;
-    } finally {
+      console.log("loadStaff session persistence failure:", error?.message);
+      setStaff(null);
+      try {
+        await SecureStore.deleteItemAsync("staff-token");
+      } catch (e) {
+        console.log("Error clearing token:", e?.message);
+      }
+      delete api.defaults.headers.common["Authorization"];
       setSessionChecking(false);
+      return null;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await SecureStore.deleteItemAsync("staff-token");
+      delete api.defaults.headers.common["Authorization"];
+      setStaff(null);
+    } catch (error) {
+      console.log("Error during logout:", error?.message);
     }
   };
 
   useEffect(() => {
-    loadTeacher();
+    loadStaff();
   }, []);
 
   return (
     <AppContext.Provider
       value={{
         backendUrl,
-        teacher,
-        setTeacher,
+        staff,
+        setStaff,
         sessionChecking,
         setSessionChecking,
-        loadTeacher,
+        loadStaff,
+        logout,
         lastUpdated,
       }}
     >

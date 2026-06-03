@@ -1,17 +1,11 @@
-import React, { useEffect, useState, useContext } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import React, { useContext, useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
+import { staffApi } from "@/api/staff";
 import AnimatedScreen from "@/components/common/AnimatedScreen";
 import TimetableUpdateModal from "@/components/modals/TimetableUpdateModal";
 import DayScheduleCard from "@/components/timetable/DayScheduleCard";
-import EmptyState from "@/components/timetable/EmptyState";
-import api from "@/configs/api";
+import { AppContext } from "@/context/AppContext";
 import { ThemeContext } from "@/context/ThemeProvider";
 
 const emptyScheduleStructure = {
@@ -24,8 +18,8 @@ const emptyScheduleStructure = {
 };
 
 const Timetable = () => {
+  const { staff } = useContext(AppContext);
   const { COLORS } = useContext(ThemeContext);
-  
   const [schedule, setSchedule] = useState(emptyScheduleStructure);
   const [loading, setLoading] = useState(true);
 
@@ -33,27 +27,28 @@ const Timetable = () => {
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedDaySchedule, setSelectedDaySchedule] = useState([]);
 
+  const isNonTeaching = staff?.staffType === "Non-Teaching";
+
   const fetchTimetable = async () => {
+    if (isNonTeaching) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const response = await api.get("/api/teacher/dashboard");
+      const data = await staffApi.getTimetable();
 
-      if (response.data?.success) {
-        const apiSchedule =
-          response.data?.dashboard?.timetable?.schedule ||
-          emptyScheduleStructure;
+      if (data?.success) {
+        const apiSchedule = data?.timetable?.schedule;
 
         setSchedule({
           ...emptyScheduleStructure,
-          ...apiSchedule,
+          ...(apiSchedule || {}),
         });
       }
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error?.response?.data?.message || "Unable to load timetable."
-      );
+      setSchedule(emptyScheduleStructure);
     } finally {
       setLoading(false);
     }
@@ -61,9 +56,9 @@ const Timetable = () => {
 
   useEffect(() => {
     fetchTimetable();
-  }, []);
-
+  }, [staff]); 
   const openDayEditor = (day, schedules) => {
+    if (isNonTeaching) return;
     setSelectedDay(day);
     setSelectedDaySchedule(schedules || []);
     setIsModalOpen(true);
@@ -79,8 +74,8 @@ const Timetable = () => {
   if (loading) {
     return (
       <AnimatedScreen>
-        <View 
-          className="flex-1 items-center justify-center" 
+        <View
+          className="flex-1 items-center justify-center"
           style={{ backgroundColor: COLORS.background }}
         >
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -98,8 +93,8 @@ const Timetable = () => {
         className="flex-1"
         style={{ backgroundColor: COLORS.background }}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header Block */}
         <View className="mb-5 items-center">
           <Text
             className="text-2xl font-bold"
@@ -109,13 +104,22 @@ const Timetable = () => {
           </Text>
 
           <Text className="mt-1" style={{ color: COLORS.textSecondary }}>
-            your weekly class schedule
+            Your weekly class schedule
           </Text>
         </View>
 
-        {/* Dynamic Cards & Empty State Layout */}
-        {Object.entries(schedule).length === 0 ? (
-          <EmptyState onPress={() => openDayEditor("Monday", [])} />
+        {isNonTeaching ? (
+          <View
+            className="rounded-3xl p-8 items-center border border-dashed mt-4"
+            style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
+          >
+            <Text
+              className="text-base font-semibold text-center"
+              style={{ color: COLORS.textSecondary }}
+            >
+              No timetable for Non-Teaching staff.
+            </Text>
+          </View>
         ) : (
           Object.entries(schedule).map(([day, schedules]) => (
             <DayScheduleCard

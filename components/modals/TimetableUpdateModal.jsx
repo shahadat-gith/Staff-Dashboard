@@ -1,38 +1,25 @@
-import React, { useEffect, useState, useContext } from "react";
+import { staffApi } from "@/api/staff";
+import { ThemeContext } from "@/context/ThemeProvider";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useContext, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  Modal,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-import { Ionicons } from "@expo/vector-icons";
-
-import api from "@/configs/api";
-import { ThemeContext } from "@/context/ThemeProvider";
-
-const CLASS_OPTIONS = {
-  english: [
-    "nursery", "kg", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", // Appended 11 and 12
-  ],
-  assamese: [
-    "ankur", "mukul", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
-  ],
-};
-
-const SUBJECT_OPTIONS = [
-  "Mathematics", "Advanced Mathematics", "Physics", "Chemistry", "Biology",
-  "Assamese", "Advance Assamese", "English", "Alternative English",
-  "Geography", "Education", "Political Science", "History", "Arabic",
-  "Social Studies", "Computer", "Garments Design", "Drawing",
-  "Drawing/Handwriting", "General Science", "GK", "EVS", "Hindi", "Retail Management"
-];
-
-const STREAM_OPTIONS = ["Arts", "Science"];
+import {
+  CLASS_OPTIONS,
+  STREAM_OPTIONS,
+  SUBJECT_OPTIONS,
+} from "@/constants/academy";
 
 const TimetableUpdateModal = ({
   visible,
@@ -43,24 +30,29 @@ const TimetableUpdateModal = ({
 }) => {
   const { COLORS } = useContext(ThemeContext);
 
-  // Flow step state sequence tracker
   const [scheduleList, setScheduleList] = useState(currentSchedule || []);
   const [selectedMedium, setSelectedMedium] = useState("english");
   const [formData, setFormData] = useState({
     class: CLASS_OPTIONS.english[0],
     subject: SUBJECT_OPTIONS[0],
     timeSlot: "",
-    stream: "", // Tracks optional streams for Higher Secondary classes
+    stream: "",
   });
 
   const [submitting, setSubmitting] = useState(false);
 
-  // Evaluates dynamically for both English and Assamese mediums
   const isHigherSecondary = formData.class === "11" || formData.class === "12";
 
   useEffect(() => {
     if (visible) {
       setScheduleList(currentSchedule || []);
+      setSelectedMedium("english");
+      setFormData({
+        class: CLASS_OPTIONS.english[0],
+        subject: SUBJECT_OPTIONS[0],
+        timeSlot: "",
+        stream: "",
+      });
     }
   }, [currentSchedule, visible]);
 
@@ -69,7 +61,8 @@ const TimetableUpdateModal = ({
     setFormData((prev) => ({
       ...prev,
       class: defaultClass,
-      stream: defaultClass === "11" || defaultClass === "12" ? STREAM_OPTIONS[0] : "",
+      stream:
+        defaultClass === "11" || defaultClass === "12" ? STREAM_OPTIONS[0] : "",
     }));
   }, [selectedMedium]);
 
@@ -78,8 +71,7 @@ const TimetableUpdateModal = ({
   const handleInputChange = (name, value) => {
     setFormData((prev) => {
       const updated = { ...prev, [name]: value };
-      
-      // Secondary State Guard: Reset stream variables smoothly based on class thresholds
+
       if (name === "class") {
         if (value === "11" || value === "12") {
           updated.stream = prev.stream || STREAM_OPTIONS[0];
@@ -97,7 +89,10 @@ const TimetableUpdateModal = ({
     }
 
     if (isHigherSecondary && !formData.stream) {
-      return Alert.alert("Missing Field", "Please assign an academic stream branch.");
+      return Alert.alert(
+        "Missing Field",
+        "Please assign an academic stream branch.",
+      );
     }
 
     const newSlotRow = {
@@ -105,33 +100,25 @@ const TimetableUpdateModal = ({
       medium: selectedMedium,
       subject: formData.subject,
       timeSlot: formData.timeSlot.trim().toUpperCase(),
-      // Injects stream metadata seamlessly when handling Higher Secondary slots
       ...(isHigherSecondary && { stream: formData.stream }),
     };
 
     setScheduleList((prev) => [...prev, newSlotRow]);
-
-    setFormData((prev) => ({
-      ...prev,
-      timeSlot: "",
-    }));
+    setFormData((prev) => ({ ...prev, timeSlot: "" }));
   };
 
   const removeScheduleRow = (indexToRemove) => {
     setScheduleList((prev) =>
-      prev.filter((_, index) => index !== indexToRemove)
+      prev.filter((_, index) => index !== indexToRemove),
     );
   };
 
   const handleSubmitTimetable = async () => {
     setSubmitting(true);
     try {
-      const response = await api.put("/api/teacher/timetable/update", {
-        day: selectedDay,
-        schedule: scheduleList,
-      });
+      const data = await staffApi.updateTimetable(selectedDay, scheduleList);
 
-      if (response.data?.success) {
+      if (data?.success) {
         if (onUpdateSuccess) {
           onUpdateSuccess(scheduleList);
         }
@@ -139,10 +126,7 @@ const TimetableUpdateModal = ({
         Alert.alert("Success", "Timetable updated successfully.");
       }
     } catch (error) {
-      Alert.alert(
-        "Update Failed",
-        error?.response?.data?.message || "Failed to update timetable."
-      );
+      Alert.alert("Update Failed", error.message);
     } finally {
       setSubmitting(false);
     }
@@ -150,13 +134,15 @@ const TimetableUpdateModal = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View className="flex-1 bg-black/40 justify-end">
-        <View 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1 bg-black/40 justify-end"
+      >
+        <View
           className="rounded-t-3xl max-h-[92%]"
           style={{ backgroundColor: COLORS.card }}
         >
-          {/* Header Panel */}
-          <View 
+          <View
             className="flex-row items-start justify-between px-5 py-4 border-b"
             style={{ borderColor: COLORS.border }}
           >
@@ -167,8 +153,10 @@ const TimetableUpdateModal = ({
               >
                 Update {selectedDay} Timetable
               </Text>
-
-              <Text className="mt-1 text-xs" style={{ color: COLORS.textSecondary }}>
+              <Text
+                className="mt-1 text-xs"
+                style={{ color: COLORS.textSecondary }}
+              >
                 Manage classes for {selectedDay}
               </Text>
             </View>
@@ -178,7 +166,11 @@ const TimetableUpdateModal = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: 20 }}>
+          <ScrollView
+            contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text
               className="text-base font-bold mb-3"
               style={{ color: COLORS.textPrimary }}
@@ -186,11 +178,13 @@ const TimetableUpdateModal = ({
               Add Schedule
             </Text>
 
-            <Text className="text-xs font-semibold mb-2" style={{ color: COLORS.textSecondary }}>
+            <Text
+              className="text-xs font-semibold mb-2"
+              style={{ color: COLORS.textSecondary }}
+            >
               Medium
             </Text>
 
-            {/* Medium Selector Controls */}
             <View className="flex-row gap-3 mb-4">
               <OptionButton
                 label="English"
@@ -206,12 +200,18 @@ const TimetableUpdateModal = ({
               />
             </View>
 
-            <Text className="text-xs font-semibold mb-2" style={{ color: COLORS.textSecondary }}>
+            <Text
+              className="text-xs font-semibold mb-2"
+              style={{ color: COLORS.textSecondary }}
+            >
               Class
             </Text>
 
-            {/* horizontal Scrollable Classes List */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-4"
+            >
               <View className="flex-row gap-2">
                 {CLASS_OPTIONS[selectedMedium].map((cls) => (
                   <Chip
@@ -225,10 +225,12 @@ const TimetableUpdateModal = ({
               </View>
             </ScrollView>
 
-            {/* DYNAMIC STREAM VIEW: Automatically renders when Class 11 or 12 is selected in either medium */}
             {isHigherSecondary && (
               <View className="mb-4">
-                <Text className="text-xs font-semibold mb-2" style={{ color: COLORS.textSecondary }}>
+                <Text
+                  className="text-xs font-semibold mb-2"
+                  style={{ color: COLORS.textSecondary }}
+                >
                   Stream
                 </Text>
                 <View className="flex-row gap-3">
@@ -245,12 +247,18 @@ const TimetableUpdateModal = ({
               </View>
             )}
 
-            <Text className="text-xs font-semibold mb-2" style={{ color: COLORS.textSecondary }}>
+            <Text
+              className="text-xs font-semibold mb-2"
+              style={{ color: COLORS.textSecondary }}
+            >
               Subject
             </Text>
 
-            {/* horizontal Scrollable Subjects List */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-4"
+            >
               <View className="flex-row gap-2">
                 {SUBJECT_OPTIONS.map((subject) => (
                   <Chip
@@ -264,7 +272,10 @@ const TimetableUpdateModal = ({
               </View>
             </ScrollView>
 
-            <Text className="text-xs font-semibold mb-2" style={{ color: COLORS.textSecondary }}>
+            <Text
+              className="text-xs font-semibold mb-2"
+              style={{ color: COLORS.textSecondary }}
+            >
               Time Slot
             </Text>
 
@@ -285,6 +296,7 @@ const TimetableUpdateModal = ({
               onPress={addScheduleRow}
               className="rounded-2xl py-4 items-center flex-row justify-center mb-5"
               style={{ backgroundColor: COLORS.primary }}
+              activeOpacity={0.8}
             >
               <Ionicons name="add" size={20} color={COLORS.white} />
               <Text className="text-white font-semibold ml-2">
@@ -292,9 +304,11 @@ const TimetableUpdateModal = ({
               </Text>
             </TouchableOpacity>
 
-            <View className="h-px mb-5" style={{ backgroundColor: COLORS.border }} />
+            <View
+              className="h-px mb-5"
+              style={{ backgroundColor: COLORS.border }}
+            />
 
-            {/* Active Day Meta Summary Heading */}
             <View className="flex-row items-center justify-between mb-4">
               <View>
                 <Text
@@ -303,8 +317,10 @@ const TimetableUpdateModal = ({
                 >
                   {selectedDay} Schedule
                 </Text>
-
-                <Text className="text-xs" style={{ color: COLORS.textSecondary }}>
+                <Text
+                  className="text-xs"
+                  style={{ color: COLORS.textSecondary }}
+                >
                   {scheduleList.length} Classes
                 </Text>
               </View>
@@ -314,8 +330,11 @@ const TimetableUpdateModal = ({
                 onPress={handleSubmitTimetable}
                 className="px-5 py-3 rounded-2xl"
                 style={{
-                  backgroundColor: submitting ? COLORS.inactive : COLORS.primary,
+                  backgroundColor: submitting
+                    ? COLORS.inactive
+                    : COLORS.primary,
                 }}
+                activeOpacity={0.8}
               >
                 {submitting ? (
                   <ActivityIndicator color={COLORS.white} />
@@ -325,9 +344,8 @@ const TimetableUpdateModal = ({
               </TouchableOpacity>
             </View>
 
-            {/* Rendered Slots Loop List */}
             {scheduleList.length === 0 ? (
-              <View 
+              <View
                 className="rounded-2xl p-5 items-center mb-4"
                 style={{ backgroundColor: COLORS.background }}
               >
@@ -352,11 +370,12 @@ const TimetableUpdateModal = ({
                       </Text>
 
                       <Text
-                        className="mt-1 text-xs"
+                        className="mt-1 text-xs capitalize"
                         style={{ color: COLORS.textSecondary }}
                       >
-                        Class {item.class} 
-                        {item.stream ? ` (${item.stream})` : ""} • {item.medium} medium
+                        Class {item.class}
+                        {item.stream ? ` (${item.stream})` : ""} • {item.medium}{" "}
+                        medium
                       </Text>
 
                       <Text
@@ -367,13 +386,16 @@ const TimetableUpdateModal = ({
                       </Text>
                     </View>
 
-                    {/* Trash Removal Icon Trigger */}
                     <TouchableOpacity
                       onPress={() => removeScheduleRow(index)}
                       className="w-10 h-10 rounded-xl items-center justify-center"
-                      style={{ 
-                        backgroundColor: COLORS.card === "#ffffff" ? "#fee2e2" : "rgba(239, 68, 68, 0.15)" 
+                      style={{
+                        backgroundColor:
+                          COLORS.card === "#ffffff"
+                            ? "#fee2e2"
+                            : "rgba(239, 68, 68, 0.15)",
                       }}
+                      activeOpacity={0.7}
                     >
                       <Ionicons
                         name="trash-outline"
@@ -387,12 +409,11 @@ const TimetableUpdateModal = ({
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
-// Mapped Contextual Sub-Components
 const OptionButton = ({ label, active, onPress, colors }) => (
   <TouchableOpacity
     onPress={onPress}
@@ -401,12 +422,11 @@ const OptionButton = ({ label, active, onPress, colors }) => (
       backgroundColor: active ? colors.primary : colors.background,
       borderColor: active ? colors.primary : colors.border,
     }}
+    activeOpacity={0.7}
   >
     <Text
       className="font-semibold"
-      style={{
-        color: active ? colors.white : colors.textPrimary,
-      }}
+      style={{ color: active ? colors.white : colors.textPrimary }}
     >
       {label}
     </Text>
@@ -421,12 +441,11 @@ const Chip = ({ label, active, onPress, colors }) => (
       backgroundColor: active ? colors.primary : colors.background,
       borderColor: active ? colors.primary : colors.border,
     }}
+    activeOpacity={0.7}
   >
     <Text
       className="font-semibold text-xs"
-      style={{
-        color: active ? colors.white : colors.textPrimary,
-      }}
+      style={{ color: active ? colors.white : colors.textPrimary }}
     >
       {label}
     </Text>

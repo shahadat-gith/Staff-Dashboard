@@ -5,7 +5,6 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { CalendarGrid } from "@/components/attendance/CalendarGrid";
 import { Legend } from "@/components/attendance/Legend";
 import { SummaryTile } from "@/components/attendance/SummaryTile";
-
 import { ThemeContext } from "@/context/ThemeProvider";
 
 const CalendarCard = ({
@@ -55,7 +54,6 @@ const CalendarCard = ({
 
   const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
 
-  // Hash history records into a clean key-value lookup map
   const attendanceMap = history.reduce((acc, item) => {
     if (item.date) {
       acc[item.date.split("T")[0]] = item.status;
@@ -63,7 +61,6 @@ const CalendarCard = ({
     return acc;
   }, {});
 
-  // --- Dynamic Metrics Engine ---
   const presentCount = history.filter(
     (item) => item.status === "Present",
   ).length;
@@ -77,9 +74,12 @@ const CalendarCard = ({
     ? Math.round((presentCount / activeTrackedDays) * 100)
     : 0;
 
+  const leaveColor = COLORS.warning || "#d97706";
+  const unmarkedColor =
+    COLORS.card === "#ffffff" ? "#f3f4f6" : "rgba(107, 114, 128, 0.2)";
+
   return (
     <View className="mb-5">
-      {/* Top Indicators Summary Dashboard Bar */}
       <View className="flex-row gap-2 mb-4">
         <SummaryTile
           title="Present"
@@ -90,7 +90,7 @@ const CalendarCard = ({
         <SummaryTile
           title="Leave"
           value={onLeaveCount}
-          color={COLORS.primary}
+          color={leaveColor}
           colors={COLORS}
         />
         <SummaryTile
@@ -107,17 +107,16 @@ const CalendarCard = ({
         />
       </View>
 
-      {/* Main Grid Card Interface Container */}
       <View
         className="rounded-3xl p-5"
         style={{ backgroundColor: COLORS.card, elevation: 3 }}
       >
-        {/* Navigation Selector Header Row */}
         <View className="flex-row items-center justify-between mb-5">
           <TouchableOpacity
             onPress={handlePrevMonth}
             className="w-10 h-10 rounded-xl items-center justify-center"
             style={{ backgroundColor: COLORS.background }}
+            activeOpacity={0.7}
           >
             <Ionicons
               name="chevron-back"
@@ -139,6 +138,7 @@ const CalendarCard = ({
             onPress={handleNextMonth}
             className="w-10 h-10 rounded-xl items-center justify-center"
             style={{ backgroundColor: COLORS.background }}
+            activeOpacity={0.7}
           >
             <Ionicons
               name="chevron-forward"
@@ -148,7 +148,6 @@ const CalendarCard = ({
           </TouchableOpacity>
         </View>
 
-        {/* Modularized Calendar Day Grid Core */}
         <CalendarGrid
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
@@ -157,19 +156,12 @@ const CalendarCard = ({
           COLORS={COLORS}
         />
 
-        {/* Legend Layout Footer Metadata Hints */}
         <View className="flex-row flex-wrap mt-4 gap-x-4 gap-y-2">
           <Legend color={COLORS.success} text="Present" colors={COLORS} />
-          <Legend color={COLORS.primary} text="On Leave" colors={COLORS} />
+          <Legend color={leaveColor} text="On Leave" colors={COLORS} />
           <Legend color={COLORS.danger} text="Absent" colors={COLORS} />
           <Legend color={COLORS.border} text="Sunday" colors={COLORS} />
-          <Legend
-            color={
-              COLORS.card === "#ffffff" ? "#f3f4f6" : "rgba(107, 114, 128, 0.2)"
-            }
-            text="Unmarked"
-            colors={COLORS}
-          />
+          <Legend color={unmarkedColor} text="Unmarked" colors={COLORS} />
         </View>
       </View>
     </View>

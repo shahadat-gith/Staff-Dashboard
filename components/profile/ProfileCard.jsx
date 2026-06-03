@@ -1,6 +1,5 @@
 import React, { useContext } from "react";
 import { View, Text } from "react-native";
-
 import { ThemeContext } from "@/context/ThemeProvider";
 
 const ProfileCard = ({ title, children }) => {

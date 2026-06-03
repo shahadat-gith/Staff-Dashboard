@@ -1,35 +1,36 @@
-import React, { useState, useContext } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useContext, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-  Modal,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
-import api from "@/configs/api";
+import { staffApi } from "@/api/staff"; // Consuming your centralized endpoint maps cleanly
 import { ThemeContext } from "@/context/ThemeProvider";
 
 const ForgotPasswordModal = ({ visible, onClose }) => {
   const { COLORS } = useContext(ThemeContext);
 
-  // Flow states: 'send-otp' -> 'verify-otp' -> 'reset-password'
+  // Flow control tracking state keys: 'send-otp' -> 'verify-otp' -> 'reset-password'
   const [step, setStep] = useState("send-otp");
-  
+
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  /* ================= RESET MODAL LOCAL CLEANUP ================= */
   const handleDismiss = () => {
     setStep("send-otp");
     setEmail("");
@@ -45,37 +46,63 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
     return emailRegex.test(inputEmail);
   };
 
+  /* ================= PROCESSING WIZARD FORM PIPELINE ================= */
   const handleFormSubmission = async () => {
     const targetEmail = email.trim().toLowerCase();
-    
+
     if (step === "send-otp") {
-      if (!targetEmail) return Alert.alert("Required Input", "Please provide your email address.");
-      if (!validateEmail(targetEmail)) return Alert.alert("Format Error", "Please enter a valid email address.");
+      if (!targetEmail)
+        return Alert.alert(
+          "Required Input",
+          "Please provide your email address.",
+        );
+      if (!validateEmail(targetEmail))
+        return Alert.alert(
+          "Format Error",
+          "Please enter a valid email address.",
+        );
     }
 
     if (step === "verify-otp") {
       if (!otp.trim() || otp.length !== 6) {
-        return Alert.alert("Invalid Code", "Please input the complete 6-digit verification code.");
+        return Alert.alert(
+          "Invalid Code",
+          "Please input the complete 6-digit verification code.",
+        );
       }
     }
 
     if (step === "reset-password") {
-      if (!newPassword.trim() || !confirmPassword.trim()) return Alert.alert("Missing Fields", "Please populate all fields.");
-      if (newPassword.length < 6) return Alert.alert("Weak Password", "Passwords must be at least 6 characters.");
-      if (newPassword !== confirmPassword) return Alert.alert("Mismatch", "Your new password entries do not match.");
+      if (!newPassword.trim() || !confirmPassword.trim())
+        return Alert.alert("Missing Fields", "Please fill all fields.");
+      if (newPassword.length < 6)
+        return Alert.alert(
+          "Weak Password",
+          "Passwords must be at least 6 characters.",
+        );
+      if (newPassword !== confirmPassword)
+        return Alert.alert(
+          "Mismatch",
+          "Your new password entries do not match.",
+        );
     }
 
     setLoading(true);
 
     try {
-      const response = await api.post(`/api/auth/forgot-password/teacher/${step}`, {
-        email: targetEmail,
-        otp: step === "verify-otp" ? otp.trim() : undefined,
-        newPassword: step === "reset-password" ? newPassword : undefined,
-      });
+      let data;
 
-      if (response.data?.success) {
-        const backendMessage = response.data.message || "Action processed successfully.";
+      // Clean branch execution calling your isolated operational methods catalog
+      if (step === "send-otp") {
+        data = await staffApi.sendForgotOtp(targetEmail);
+      } else if (step === "verify-otp") {
+        data = await staffApi.verifyForgotOtp(targetEmail, otp.trim());
+      } else if (step === "reset-password") {
+        data = await staffApi.resetPassword(targetEmail, newPassword);
+      }
+
+      if (data?.success) {
+        const backendMessage = data.message || "Action processed successfully.";
 
         if (step === "send-otp") {
           Alert.alert("OTP Sent", backendMessage);
@@ -85,14 +112,15 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
           setStep("reset-password");
         } else if (step === "reset-password") {
           Alert.alert("Success", backendMessage, [
-            { text: "OK", onPress: handleDismiss }
+            { text: "OK", onPress: handleDismiss },
           ]);
         }
       }
     } catch (error) {
       Alert.alert(
         "Request Failed",
-        error?.response?.data?.message || "An unexpected error occurred. Please try again."
+        error?.response?.data?.message ||
+          "An unexpected error occurred. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -107,7 +135,11 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       onRequestClose={handleDismiss}
     >
       <View className="flex-1 justify-end bg-black/50">
-        <TouchableOpacity className="flex-1" activeOpacity={1} onPress={handleDismiss} />
+        <TouchableOpacity
+          className="flex-1"
+          activeOpacity={1}
+          onPress={handleDismiss}
+        />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -115,36 +147,54 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
         >
           <View
             className="rounded-t-[32px] p-6 border-t"
-            style={{ 
-              backgroundColor: COLORS.card, 
+            style={{
+              backgroundColor: COLORS.card,
               borderColor: COLORS.border,
-              elevation: 24
+              elevation: 24,
             }}
           >
             {/* Simple static handlebar ornament */}
             <View className="w-12 h-1.5 rounded-full self-center mb-6 bg-gray-300 dark:bg-gray-700" />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              
-              <Text className="text-2xl font-bold mb-2 text-center" style={{ color: COLORS.textPrimary }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              <Text
+                className="text-2xl font-bold mb-2 text-center"
+                style={{ color: COLORS.textPrimary }}
+              >
                 {step === "send-otp" && "Forgot Password"}
                 {step === "verify-otp" && "Verify Security Code"}
                 {step === "reset-password" && "Reset Password"}
               </Text>
 
-              <Text className="text-sm text-center mb-6 leading-relaxed" style={{ color: COLORS.textSecondary }}>
-                {step === "send-otp" && "Input your email address to get a password reset code."}
-                {step === "verify-otp" && `Type the 6-digit verification code sent directly to your active inbox at: \n${email.trim().toLowerCase()}`}
-                {step === "reset-password" && "Add a strong and secure password."}
+              <Text
+                className="text-sm text-center mb-6 leading-relaxed"
+                style={{ color: COLORS.textSecondary }}
+              >
+                {step === "send-otp" &&
+                  "Input your email address to get a password reset code."}
+                {step === "verify-otp" &&
+                  `Type the 6-digit verification code sent directly to your active inbox at: \n${email.trim().toLowerCase()}`}
+                {step === "reset-password" &&
+                  "Add a strong and secure password."}
               </Text>
 
               {/* STEP 1: Email Input */}
               {step === "send-otp" && (
                 <View
                   className="flex-row items-center border rounded-2xl px-4 mb-6"
-                  style={{ borderColor: COLORS.border, backgroundColor: COLORS.background }}
+                  style={{
+                    borderColor: COLORS.border,
+                    backgroundColor: COLORS.background,
+                  }}
                 >
-                  <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={COLORS.textSecondary}
+                  />
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
@@ -163,9 +213,16 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
               {step === "verify-otp" && (
                 <View
                   className="flex-row items-center border rounded-2xl px-4 mb-6"
-                  style={{ borderColor: COLORS.border, backgroundColor: COLORS.background }}
+                  style={{
+                    borderColor: COLORS.border,
+                    backgroundColor: COLORS.background,
+                  }}
                 >
-                  <Ionicons name="keypad-outline" size={20} color={COLORS.textSecondary} />
+                  <Ionicons
+                    name="keypad-outline"
+                    size={20}
+                    color={COLORS.textSecondary}
+                  />
                   <TextInput
                     value={otp}
                     onChangeText={setOtp}
@@ -184,9 +241,16 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
                 <View>
                   <View
                     className="flex-row items-center border rounded-2xl px-4 mb-4"
-                    style={{ borderColor: COLORS.border, backgroundColor: COLORS.background }}
+                    style={{
+                      borderColor: COLORS.border,
+                      backgroundColor: COLORS.background,
+                    }}
                   >
-                    <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
                     <TextInput
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -197,7 +261,9 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
                       style={{ color: COLORS.textPrimary }}
                       autoCapitalize="none"
                     />
-                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
                       <Ionicons
                         name={showPassword ? "eye-off-outline" : "eye-outline"}
                         size={20}
@@ -208,9 +274,16 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
 
                   <View
                     className="flex-row items-center border rounded-2xl px-4 mb-6"
-                    style={{ borderColor: COLORS.border, backgroundColor: COLORS.background }}
+                    style={{
+                      borderColor: COLORS.border,
+                      backgroundColor: COLORS.background,
+                    }}
                   >
-                    <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.textSecondary} />
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
                     <TextInput
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -229,7 +302,9 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
                 disabled={loading}
                 onPress={handleFormSubmission}
                 className="rounded-2xl py-4 items-center justify-center"
-                style={{ backgroundColor: loading ? COLORS.inactive : COLORS.primary }}
+                style={{
+                  backgroundColor: loading ? COLORS.inactive : COLORS.primary,
+                }}
               >
                 {loading ? (
                   <ActivityIndicator color={COLORS.white} />
@@ -242,8 +317,15 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity className="mt-5 items-center" onPress={handleDismiss} disabled={loading}>
-                <Text className="text-sm font-medium" style={{ color: COLORS.textSecondary }}>
+              <TouchableOpacity
+                className="mt-5 items-center"
+                onPress={handleDismiss}
+                disabled={loading}
+              >
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: COLORS.textSecondary }}
+                >
                   Cancel and Close
                 </Text>
               </TouchableOpacity>
