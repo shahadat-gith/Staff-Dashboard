@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "NAA Teacher Portal",
-    "slug": "teacher-dashboard",
+    "name": "Staff Dashboard",
+    "slug": "staff dashboard",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "naa-teacher",
